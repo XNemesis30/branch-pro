@@ -383,7 +383,7 @@ export function AppProvider({ children }) {
   const deleteDeposit     = (id) => _deleteFromSheet(SHEETS.DEPOSITS,      deposits,      setDeposits,      id);
   const deleteMotherTransfer = (id) => _deleteFromSheet(SHEETS.MOTHER_COMPANY, motherTransfers, setMotherTransfers, id);
 
-
+  const getStats = () => {
     const active = employees.filter(e=>e.status==="Active"||e.status==="Rehired");
     return {
       totalEmployees: employees.length, activeEmployees: active.length,
