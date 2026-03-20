@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { formatCurrency, monthLabel } from "../utils/sheets";
+import DeleteBtn from "../components/DeleteBtn";
 
 function PaymentModal({ record, employee, onClose, onSave }) {
   const [form, setForm] = useState({
@@ -182,7 +183,7 @@ function GenerateSalaryModal({ employees, existing, onClose, onGenerate }) {
 }
 
 export default function Salary() {
-  const { employees, salaryRecords, transactions, recordPayment, generateSalaryRecord } = useApp();
+  const { employees, salaryRecords, transactions, recordPayment, generateSalaryRecord, caps, deleteSalary, deleteTransaction } = useApp();
   const [search, setSearch] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
   const [yearFilter, setYearFilter] = useState(String(new Date().getFullYear()));
@@ -228,7 +229,7 @@ export default function Salary() {
           </select>
         </div>
         <div className="toolbar-right">
-          <button className="btn btn-primary" onClick={() => setGenModal(true)}>+ Generate Salary</button>
+          {caps.canGenerateSalary && <button className="btn btn-primary" onClick={() => setGenModal(true)}>+ Generate Salary</button>}
         </div>
       </div>
 
@@ -273,7 +274,7 @@ export default function Salary() {
                       <td><span className={`badge badge-${r.status}`}>{r.status}</span></td>
                       <td>
                         <div style={{ display: "flex", gap: "6px" }}>
-                          {r.status !== "paid" && (
+                          {r.status !== "paid" && caps.canRecordPayment && (
                             <button className="btn btn-success btn-sm" onClick={() => setPayModal({ record: r, emp })}>
                               + Pay
                             </button>
@@ -283,6 +284,7 @@ export default function Salary() {
                               TXN ({empTxns.length})
                             </button>
                           )}
+                          <DeleteBtn onDelete={() => deleteSalary(r.id)} label="this salary record"/>
                         </div>
                       </td>
                     </tr>
@@ -294,7 +296,8 @@ export default function Salary() {
                         <td colSpan={2} className="amount amount-positive">{formatCurrency(txn.amount)}</td>
                         <td colSpan={2}><span className="mono" style={{ fontSize: "11px" }}>{txn.method}</span></td>
                         <td colSpan={2}><span className="mono" style={{ fontSize: "11px", color: "var(--accent)" }}>{txn.transactionId || "Cash"}</span></td>
-                        <td colSpan={2} style={{ fontSize: "11px", color: "var(--text-muted)" }}>{txn.senderAccount}</td>
+                        <td colSpan={1} style={{ fontSize: "11px", color: "var(--text-muted)" }}>{txn.senderAccount}</td>
+                        <td colSpan={1}><DeleteBtn onDelete={() => deleteTransaction(txn.id)} label="this transaction"/></td>
                       </tr>
                     ))}
                   </>

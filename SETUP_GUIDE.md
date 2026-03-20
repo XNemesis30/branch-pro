@@ -274,3 +274,54 @@ branch-pro/
 ├── package.json
 └── vite.config.js
 ```
+
+---
+
+## Multi-User Role System
+
+Branch Pro supports 3 roles, each with its own password set in `.env`:
+
+| Role | Password env var | Default |
+|---|---|---|
+| Admin | `VITE_ADMIN_PASSWORD` | `admin123` |
+| Manager | `VITE_MANAGER_PASSWORD` | `manager123` |
+| Staff/Employee | `VITE_EMPLOYEE_PASSWORD` | `staff123` |
+
+### What each role can do
+
+| Feature | Admin | Manager | Staff |
+|---|---|---|---|
+| Dashboard (finance view) | ✅ | ✅ | ✅ |
+| Dashboard (payroll stats) | ✅ | ✅ | ❌ |
+| Daily Income | ✅ | ✅ | ✅ |
+| Daily Expenses | ✅ | ✅ | ✅ |
+| Cash Ledger | ✅ | ✅ | ✅ |
+| Bank Ledger | ✅ | ✅ | ✅ |
+| Cheques | ✅ | ✅ | ✅ |
+| Deposits | ✅ | ✅ | ✅ |
+| Mother Company | ✅ | ✅ | ✅ |
+| View Employees | ✅ | ✅ (view only) | ❌ |
+| Add/Edit Employees | ✅ | ❌ | ❌ |
+| Fire / Rehire | ✅ | ✅ | ❌ |
+| Apply Increment | ✅ | ❌ | ❌ |
+| View Salary Records | ✅ | ✅ | ❌ |
+| Generate Salary | ✅ | ❌ | ❌ |
+| Record Salary Payment | ✅ | ❌ | ❌ |
+| View Loans | ✅ | ✅ | ❌ |
+| Issue Loan | ✅ | ❌ | ❌ |
+| Add Bonus | ✅ | ❌ | ❌ |
+| Reports & CSV Export | ✅ | ✅ | ❌ |
+
+### How to share access
+- Give your admin password only to yourself (the owner)
+- Give the manager password to your accountant or branch manager
+- Give the staff password to any other employees who record daily transactions
+- All 3 can be logged in simultaneously from different devices — Google Sheets handles concurrent access
+
+### Changing passwords
+Edit your `.env` file (or Netlify environment variables) and redeploy:
+```env
+VITE_ADMIN_PASSWORD=MySecureAdminPass2026
+VITE_MANAGER_PASSWORD=MyManagerPass2026
+VITE_EMPLOYEE_PASSWORD=MyStaffPass2026
+```

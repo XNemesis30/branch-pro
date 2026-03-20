@@ -1,18 +1,20 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import {
-  readSheet, appendRow, updateRow, SHEETS,
+  readSheet, appendRow, updateRow, deleteRow, SHEETS,
   EMPLOYEE_HEADERS, SALARY_HEADERS, LOAN_HEADERS, BONUS_HEADERS,
   TRANSACTION_HEADERS, INCREMENT_HEADERS, INCOME_HEADERS, EXPENSE_HEADERS,
   CASH_HEADERS, BANK_HEADERS, CHEQUE_HEADERS, DEPOSIT_HEADERS, MOTHER_HEADERS,
   generateId, generateEmployeeId, setAccessToken, initializeSheets,
   SHEETS_CONFIG, today,
 } from "../utils/sheets";
+import { getCaps, getPages } from "../utils/roles";
 
 const AppContext = createContext(null);
 export const useApp = () => useContext(AppContext);
 
 export function AppProvider({ children }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [role, setRole] = useState(null);          // "admin" | "manager" | "employee"
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -33,10 +35,26 @@ export function AppProvider({ children }) {
 
   const isDemo = !SHEETS_CONFIG.SPREADSHEET_ID;
 
-  const login = useCallback(async (password) => {
-    const adminPass = import.meta.env.VITE_ADMIN_PASSWORD || "admin123";
-    if (password !== adminPass) throw new Error("Invalid password");
-    if (!SHEETS_CONFIG.CLIENT_ID) { setIsLoggedIn(true); return; }
+  // Derived helpers — re-computed whenever role changes
+  const caps = getCaps(role);
+  const allowedPages = getPages(role);
+
+  const login = useCallback(async (attemptRole, password) => {
+    // Password map — each role has its own env var with fallback
+    const passwords = {
+      admin:    import.meta.env.VITE_ADMIN_PASSWORD    || "admin123",
+      manager:  import.meta.env.VITE_MANAGER_PASSWORD  || "manager123",
+      employee: import.meta.env.VITE_EMPLOYEE_PASSWORD || "staff123",
+    };
+    if (password !== passwords[attemptRole]) throw new Error("Wrong password. Please try again.");
+
+    // Demo / no OAuth mode
+    if (!SHEETS_CONFIG.CLIENT_ID) {
+      setRole(attemptRole);
+      setIsLoggedIn(true);
+      return;
+    }
+
     return new Promise((resolve, reject) => {
       const client = window.google.accounts.oauth2.initTokenClient({
         client_id: SHEETS_CONFIG.CLIENT_ID,
@@ -44,6 +62,7 @@ export function AppProvider({ children }) {
         callback: async (response) => {
           if (response.error) { reject(new Error(response.error)); return; }
           setAccessToken(response.access_token);
+          setRole(attemptRole);
           setIsLoggedIn(true);
           await loadAllData();
           resolve();
@@ -53,19 +72,33 @@ export function AppProvider({ children }) {
     });
   }, []);
 
-  const logout = () => { setIsLoggedIn(false); setAccessToken(null); setCurrentPage("dashboard"); };
+  const logout = () => {
+    setIsLoggedIn(false);
+    setRole(null);
+    setAccessToken(null);
+    setCurrentPage("dashboard");
+  };
 
   const loadAllData = useCallback(async () => {
     if (!SHEETS_CONFIG.SPREADSHEET_ID) return;
     setLoading(true);
+    setError(null);
     try {
-      await initializeSheets();
+      // Initialize headers first, get list of missing tabs
+      const { missing } = await initializeSheets();
+      if (missing && missing.length > 0) {
+        setError(`⚠ Missing sheet tabs: ${missing.join(", ")}. Please create these tabs in your Google Sheet then reload.`);
+      }
+
+      // Read each sheet individually — don't let one failure kill everything
+      const safeRead = async (name) => { try { return await readSheet(name); } catch(e) { console.warn(`Could not read ${name}:`, e.message); return []; } };
+
       const [emps,sal,ln,bon,txn,inc,income,exp,cash,bank,cheq,dep,mom] = await Promise.all([
-        readSheet(SHEETS.EMPLOYEES), readSheet(SHEETS.SALARY), readSheet(SHEETS.LOANS),
-        readSheet(SHEETS.BONUSES), readSheet(SHEETS.TRANSACTIONS), readSheet(SHEETS.INCREMENTS),
-        readSheet(SHEETS.INCOME), readSheet(SHEETS.EXPENSES), readSheet(SHEETS.CASH_LEDGER),
-        readSheet(SHEETS.BANK_LEDGER), readSheet(SHEETS.CHEQUES), readSheet(SHEETS.DEPOSITS),
-        readSheet(SHEETS.MOTHER_COMPANY),
+        safeRead(SHEETS.EMPLOYEES), safeRead(SHEETS.SALARY), safeRead(SHEETS.LOANS),
+        safeRead(SHEETS.BONUSES), safeRead(SHEETS.TRANSACTIONS), safeRead(SHEETS.INCREMENTS),
+        safeRead(SHEETS.INCOME), safeRead(SHEETS.EXPENSES), safeRead(SHEETS.CASH_LEDGER),
+        safeRead(SHEETS.BANK_LEDGER), safeRead(SHEETS.CHEQUES), safeRead(SHEETS.DEPOSITS),
+        safeRead(SHEETS.MOTHER_COMPANY),
       ]);
       setEmployees(emps); setSalaryRecords(sal); setLoans(ln); setBonuses(bon);
       setTransactions(txn); setIncrements(inc); setIncomeEntries(income);
@@ -323,7 +356,34 @@ export function AppProvider({ children }) {
     return inc;
   };
 
-  const getStats = () => {
+  // ─── Auto-sync every 30 seconds when logged in ────────────
+  useEffect(() => {
+    if (!isLoggedIn || isDemo) return;
+    const interval = setInterval(() => { loadAllData(); }, 30000);
+    return () => clearInterval(interval);
+  }, [isLoggedIn, isDemo, loadAllData]);
+
+  // ─── Delete functions (admin only — enforced in UI via caps) ──
+
+  const _deleteFromSheet = async (sheetName, data, setData, id) => {
+    const idx = data.findIndex(r => r.id === id);
+    if (idx === -1) throw new Error("Record not found");
+    if (!isDemo) await deleteRow(sheetName, idx);
+    setData(prev => prev.filter(r => r.id !== id));
+  };
+
+  const deleteEmployee    = (id) => _deleteFromSheet(SHEETS.EMPLOYEES,     employees,     setEmployees,     id);
+  const deleteSalary      = (id) => _deleteFromSheet(SHEETS.SALARY,        salaryRecords, setSalaryRecords, id);
+  const deleteLoan        = (id) => _deleteFromSheet(SHEETS.LOANS,         loans,         setLoans,         id);
+  const deleteBonus       = (id) => _deleteFromSheet(SHEETS.BONUSES,       bonuses,       setBonuses,       id);
+  const deleteTransaction = (id) => _deleteFromSheet(SHEETS.TRANSACTIONS,  transactions,  setTransactions,  id);
+  const deleteIncome      = (id) => _deleteFromSheet(SHEETS.INCOME,        incomeEntries, setIncomeEntries, id);
+  const deleteExpense     = (id) => _deleteFromSheet(SHEETS.EXPENSES,      expenseEntries,setExpenseEntries,id);
+  const deleteCheque      = (id) => _deleteFromSheet(SHEETS.CHEQUES,       cheques,       setCheques,       id);
+  const deleteDeposit     = (id) => _deleteFromSheet(SHEETS.DEPOSITS,      deposits,      setDeposits,      id);
+  const deleteMotherTransfer = (id) => _deleteFromSheet(SHEETS.MOTHER_COMPANY, motherTransfers, setMotherTransfers, id);
+
+
     const active = employees.filter(e=>e.status==="Active"||e.status==="Rehired");
     return {
       totalEmployees: employees.length, activeEmployees: active.length,
@@ -342,12 +402,15 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       isLoggedIn,login,logout,currentPage,setCurrentPage,loading,error,setError,isDemo,
+      role,caps,allowedPages,
       employees,salaryRecords,loans,bonuses,transactions,increments,
       incomeEntries,expenseEntries,cashLedger,bankLedger,cheques,deposits,motherTransfers,
       addEmployee,updateEmployee,fireEmployee,rehireEmployee,
       generateSalaryRecord,recordPayment,issueLoan,repayLoanFull,addBonus,applyIncrement,
       addIncome,addExpense,addDeposit,addMotherTransfer,
       addCheque,updateChequeStatus,collectBouncedCheque,
+      deleteEmployee,deleteSalary,deleteLoan,deleteBonus,deleteTransaction,
+      deleteIncome,deleteExpense,deleteCheque,deleteDeposit,deleteMotherTransfer,
       getCashBalance,getBankBalance,getStats,loadAllData,
     }}>
       {children}

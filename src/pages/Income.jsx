@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { formatCurrency, today } from "../utils/sheets";
+import DeleteBtn from "../components/DeleteBtn";
 
 const CATEGORIES = ["product sale","service payment","due payment","advance payment","miscellaneous income"];
 const METHODS = ["Cash","Bank Transfer","bKash","Nagad","Rocket","Card Payment","Cheque"];
@@ -14,7 +15,7 @@ function IncomeModal({ onClose, onSave }) {
 
   const submit = async () => {
     setError("");
-    if (!form.customerName||!form.amount) { setError("Customer name and amount are required."); return; }
+    if (!form.amount || parseFloat(form.amount) <= 0) { setError("A valid amount is required."); return; }
     if (needsTxn && !form.transactionId) { setError("Transaction ID is mandatory for non-cash payments."); return; }
     try { await onSave(form); onClose(); } catch(e) { setError(e.message); }
   };
@@ -30,7 +31,7 @@ function IncomeModal({ onClose, onSave }) {
           {error && <div className="alert alert-error">{error}</div>}
           <div className="form-grid">
             <div className="form-group"><label>Date *</label><input type="date" value={form.date} onChange={e=>set("date",e.target.value)}/></div>
-            <div className="form-group"><label>Customer Name *</label><input value={form.customerName} onChange={e=>set("customerName",e.target.value)} placeholder="Customer / company name"/></div>
+            <div className="form-group"><label>Customer Name</label><input value={form.customerName} onChange={e=>set("customerName",e.target.value)} placeholder="Optional — customer or company name"/></div>
             <div className="form-group"><label>Amount (৳) *</label><input type="number" value={form.amount} onChange={e=>set("amount",e.target.value)} placeholder="Payment amount"/></div>
             <div className="form-group"><label>Payment Method</label>
               <select value={form.paymentMethod} onChange={e=>set("paymentMethod",e.target.value)}>
@@ -61,7 +62,7 @@ function IncomeModal({ onClose, onSave }) {
 }
 
 export default function Income() {
-  const { incomeEntries, addIncome } = useApp();
+  const { incomeEntries, addIncome, deleteIncome } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("All");
@@ -110,9 +111,9 @@ export default function Income() {
       <div className="card">
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Date</th><th>Customer</th><th>Amount</th><th>Method</th><th>Category</th><th>Transaction ID</th><th>Note</th></tr></thead>
+            <thead><tr><th>Date</th><th>Customer</th><th>Amount</th><th>Method</th><th>Category</th><th>Transaction ID</th><th>Note</th><th></th></tr></thead>
             <tbody>
-              {filtered.length===0&&<tr><td colSpan={7}><div className="empty-state"><p>No income records found</p></div></td></tr>}
+              {filtered.length===0&&<tr><td colSpan={8}><div className="empty-state"><p>No income records found</p></div></td></tr>}
               {filtered.map(e=>(
                 <tr key={e.id}>
                   <td className="mono" style={{fontSize:"12px"}}>{e.date}</td>
@@ -122,6 +123,7 @@ export default function Income() {
                   <td><span className="badge badge-active" style={{textTransform:"capitalize",fontSize:"10px"}}>{e.category}</span></td>
                   <td className="mono" style={{fontSize:"11px",color:"var(--accent)"}}>{e.transactionId||<span style={{color:"var(--text-muted)"}}>Cash</span>}</td>
                   <td style={{color:"var(--text-muted)",fontSize:"12px"}}>{e.note||"—"}</td>
+                  <td><DeleteBtn onDelete={()=>deleteIncome(e.id)} label="this income entry"/></td>
                 </tr>
               ))}
             </tbody>

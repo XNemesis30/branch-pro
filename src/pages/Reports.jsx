@@ -3,7 +3,7 @@ import { useApp } from "../context/AppContext";
 import { formatCurrency, exportCSV, monthLabel } from "../utils/sheets";
 
 export default function Reports() {
-  const { employees, salaryRecords, loans, bonuses, transactions, increments, incomeEntries, expenseEntries, cashLedger, bankLedger, cheques, deposits, motherTransfers } = useApp();
+  const { employees, salaryRecords, loans, bonuses, transactions, increments, incomeEntries, expenseEntries, cashLedger, bankLedger, cheques, deposits, motherTransfers, caps } = useApp();
   const [dateFilter, setDateFilter] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth()+1));
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
@@ -86,6 +86,9 @@ export default function Reports() {
       {/* Export grid */}
       <div className="card" style={{marginBottom:"20px"}}>
         <div className="section-title">Export CSV Files (UTF-8 encoded)</div>
+        {!caps.canExport ? (
+          <div className="alert alert-warning">CSV export is available to Admin and Manager roles only.</div>
+        ) : (
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:"10px"}}>
           {exportSets.map(({label,icon,count,fn})=>(
             <button key={label} onClick={fn} style={{background:"var(--bg-elevated)",border:"1px solid var(--border)",borderRadius:"10px",padding:"14px",cursor:"pointer",textAlign:"left",transition:"var(--transition)",color:"var(--text)"}}
@@ -98,6 +101,7 @@ export default function Reports() {
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {/* Monthly P&L Summary */}

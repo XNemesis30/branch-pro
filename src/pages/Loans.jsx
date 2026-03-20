@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { formatCurrency } from "../utils/sheets";
+import DeleteBtn from "../components/DeleteBtn";
 
 function LoanModal({ employees, onClose, onSave }) {
   const [form, setForm] = useState({
@@ -76,7 +77,7 @@ function LoanModal({ employees, onClose, onSave }) {
 }
 
 export default function Loans() {
-  const { loans, employees, issueLoan, repayLoanFull } = useApp();
+  const { loans, employees, issueLoan, repayLoanFull, caps, deleteLoan } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState("All");
 
@@ -98,7 +99,7 @@ export default function Loans() {
           </select>
         </div>
         <div className="toolbar-right">
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Issue Loan</button>
+          {caps.canIssueLoan && <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Issue Loan</button>}
         </div>
       </div>
 
@@ -117,8 +118,7 @@ export default function Loans() {
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
-            </thead>
-            <tbody>
+            </thead>            <tbody>
               {filtered.length === 0 && (
                 <tr><td colSpan={9}><div className="empty-state"><p>No loan records found</p></div></td></tr>
               )}
@@ -156,12 +156,15 @@ export default function Loans() {
                       </span>
                     </td>
                     <td>
-                      {loan.status === "active" && (
-                        <button className="btn btn-success btn-sm"
-                          onClick={() => { if (confirm("Mark this loan as fully repaid?")) repayLoanFull(loan.id); }}>
-                          Mark Repaid
-                        </button>
-                      )}
+                      <div style={{display:"flex",gap:"6px"}}>
+                        {loan.status === "active" && caps.canRepayLoan && (
+                          <button className="btn btn-success btn-sm"
+                            onClick={() => { if (confirm("Mark this loan as fully repaid?")) repayLoanFull(loan.id); }}>
+                            Mark Repaid
+                          </button>
+                        )}
+                        <DeleteBtn onDelete={()=>deleteLoan(loan.id)} label="this loan"/>
+                      </div>
                     </td>
                   </tr>
                 );

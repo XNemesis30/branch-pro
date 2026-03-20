@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { formatCurrency, today } from "../utils/sheets";
+import DeleteBtn from "../components/DeleteBtn";
 
 function TransferModal({ onClose, onSave, cashBalance }) {
   const [form, setForm] = useState({ date:today(), amount:"", method:"bKash", reference:"", note:"" });
@@ -43,7 +44,7 @@ function TransferModal({ onClose, onSave, cashBalance }) {
 }
 
 export default function MotherCompany() {
-  const { motherTransfers, addMotherTransfer, getCashBalance } = useApp();
+  const { motherTransfers, addMotherTransfer, getCashBalance, deleteMotherTransfer } = useApp();
   const [showModal, setShowModal] = useState(false);
 
   const sorted = [...motherTransfers].sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -77,9 +78,9 @@ export default function MotherCompany() {
           <div className="card">
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Reference</th><th>Note</th></tr></thead>
+                <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Reference</th><th>Note</th><th></th></tr></thead>
                 <tbody>
-                  {sorted.length===0&&<tr><td colSpan={5}><div className="empty-state"><p>No transfers recorded</p></div></td></tr>}
+                  {sorted.length===0&&<tr><td colSpan={6}><div className="empty-state"><p>No transfers recorded</p></div></td></tr>}
                   {sorted.map(m=>(
                     <tr key={m.id}>
                       <td className="mono" style={{fontSize:"12px"}}>{m.date}</td>
@@ -87,6 +88,7 @@ export default function MotherCompany() {
                       <td style={{fontSize:"12px"}}>{m.method}</td>
                       <td className="mono" style={{fontSize:"11px",color:"var(--accent)"}}>{m.reference||"—"}</td>
                       <td style={{fontSize:"12px",color:"var(--text-muted)"}}>{m.note||"—"}</td>
+                      <td><DeleteBtn onDelete={()=>deleteMotherTransfer(m.id)} label="this transfer"/></td>
                     </tr>
                   ))}
                 </tbody>

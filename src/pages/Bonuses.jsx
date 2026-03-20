@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { formatCurrency } from "../utils/sheets";
+import DeleteBtn from "../components/DeleteBtn";
 
 function BonusModal({ employees, onClose, onSave }) {
   const [form, setForm] = useState({
@@ -72,7 +73,7 @@ function BonusModal({ employees, onClose, onSave }) {
 }
 
 export default function Bonuses() {
-  const { bonuses, employees, addBonus } = useApp();
+  const { bonuses, employees, addBonus, caps, deleteBonus } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -112,7 +113,7 @@ export default function Bonuses() {
           <input className="search-input" placeholder="Search by employee or reason..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <div className="toolbar-right">
-          <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Add Bonus</button>
+          {caps.canAddBonus && <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Add Bonus</button>}
         </div>
       </div>
 
@@ -126,11 +127,12 @@ export default function Bonuses() {
                 <th>Date</th>
                 <th>Type</th>
                 <th>Reason</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={5}><div className="empty-state"><p>No bonus records found</p></div></td></tr>
+                <tr><td colSpan={6}><div className="empty-state"><p>No bonus records found</p></div></td></tr>
               )}
               {filtered.map(b => (
                 <tr key={b.id}>
@@ -141,6 +143,7 @@ export default function Bonuses() {
                     <span className="badge badge-active" style={{ textTransform: "capitalize" }}>{b.type}</span>
                   </td>
                   <td style={{ color: "var(--text-dim)" }}>{b.reason}</td>
+                  <td><DeleteBtn onDelete={()=>deleteBonus(b.id)} label="this bonus"/></td>
                 </tr>
               ))}
             </tbody>

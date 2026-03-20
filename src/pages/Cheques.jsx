@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { formatCurrency, today } from "../utils/sheets";
+import DeleteBtn from "../components/DeleteBtn";
 
 function ChequeModal({ onClose, onSave }) {
   const [form, setForm] = useState({ customerName:"", chequeNumber:"", bankName:"", amount:"", issueDate:today(), receivedDate:today(), expectedClearDate:"", note:"" });
   const [error, setError] = useState("");
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
   const submit = async () => {
-    if (!form.customerName||!form.chequeNumber||!form.amount) { setError("Customer, cheque number, and amount are required."); return; }
+    if (!form.amount || parseFloat(form.amount) <= 0) { setError("Amount is required."); return; }
     try { await onSave(form); onClose(); } catch(e) { setError(e.message); }
   };
   return (
@@ -17,8 +18,8 @@ function ChequeModal({ onClose, onSave }) {
         <div className="modal-body">
           {error&&<div className="alert alert-error">{error}</div>}
           <div className="form-grid">
-            <div className="form-group"><label>Customer Name *</label><input value={form.customerName} onChange={e=>set("customerName",e.target.value)} placeholder="Cheque issuer"/></div>
-            <div className="form-group"><label>Cheque Number *</label><input value={form.chequeNumber} onChange={e=>set("chequeNumber",e.target.value)} placeholder="e.g. 001234"/></div>
+            <div className="form-group"><label>Customer Name</label><input value={form.customerName} onChange={e=>set("customerName",e.target.value)} placeholder="Optional — cheque issuer"/></div>
+            <div className="form-group"><label>Cheque Number</label><input value={form.chequeNumber} onChange={e=>set("chequeNumber",e.target.value)} placeholder="Optional — e.g. 001234"/></div>
             <div className="form-group"><label>Bank Name</label><input value={form.bankName} onChange={e=>set("bankName",e.target.value)} placeholder="Issuing bank"/></div>
             <div className="form-group"><label>Amount (৳) *</label><input type="number" value={form.amount} onChange={e=>set("amount",e.target.value)}/></div>
             <div className="form-group"><label>Issue Date</label><input type="date" value={form.issueDate} onChange={e=>set("issueDate",e.target.value)}/></div>
@@ -66,7 +67,7 @@ function CollectModal({ cheque, onClose, onSave }) {
 const STATUS_MAP = { pending:"badge-partial", deposited:"badge-active", cleared:"badge-paid", bounced:"badge-fired", "manually collected":"badge-rehired" };
 
 export default function Cheques() {
-  const { cheques, addCheque, updateChequeStatus, collectBouncedCheque } = useApp();
+  const { cheques, addCheque, updateChequeStatus, collectBouncedCheque, deleteCheque } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [collectCheque, setCollectCheque] = useState(null);
   const [filter, setFilter] = useState("All");
@@ -140,6 +141,7 @@ export default function Cheques() {
                           <button className="btn btn-danger btn-sm" onClick={()=>updateChequeStatus(c.id,"bounced","Bounced")}>✗ Bounce</button>
                         </>}
                         {c.status==="bounced"&&<button className="btn btn-secondary btn-sm" onClick={()=>setCollectCheque(c)}>Collect</button>}
+                        <DeleteBtn onDelete={()=>deleteCheque(c.id)} label="this cheque"/>
                       </div>
                     </td>
                   </tr>

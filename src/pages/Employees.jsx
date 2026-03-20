@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { formatCurrency } from "../utils/sheets";
-
+import DeleteBtn from "../components/DeleteBtn";
 function EmployeeModal({ emp, onClose, onSave }) {
   const [form, setForm] = useState(emp || {
     name: "", nid: "", dob: "", joiningDate: "", bkash: "",
@@ -155,7 +155,7 @@ function RehireModal({ emp, onClose, onSave }) {
 }
 
 export default function Employees() {
-  const { employees, addEmployee, updateEmployee, fireEmployee, rehireEmployee, applyIncrement, salaryRecords } = useApp();
+  const { employees, addEmployee, updateEmployee, fireEmployee, rehireEmployee, applyIncrement, salaryRecords, caps, deleteEmployee } = useApp();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [showModal, setShowModal] = useState(false);
@@ -198,9 +198,11 @@ export default function Employees() {
           </select>
         </div>
         <div className="toolbar-right">
-          <button className="btn btn-primary" onClick={() => { setEditEmp(null); setShowModal(true); }}>
-            + Add Employee
-          </button>
+          {caps.canEditEmployees && (
+            <button className="btn btn-primary" onClick={() => { setEditEmp(null); setShowModal(true); }}>
+              + Add Employee
+            </button>
+          )}
         </div>
       </div>
 
@@ -236,13 +238,13 @@ export default function Employees() {
                   <td>
                     <div style={{ display: "flex", gap: "6px" }}>
                       <button className="btn btn-secondary btn-sm" onClick={() => setSelectedEmp(emp)}>View</button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => { setEditEmp(emp); setShowModal(true); }}>Edit</button>
-                      <button className="btn btn-success btn-sm" onClick={() => setIncrementEmp(emp)}>↑ Inc</button>
-                      {emp.status !== "Fired" ? (
-                        <button className="btn btn-danger btn-sm" onClick={() => { if (confirm(`Fire ${emp.name}?`)) fireEmployee(emp.id); }}>Fire</button>
-                      ) : (
-                        <button className="btn btn-secondary btn-sm" onClick={() => setRehireEmp(emp)}>Rehire</button>
+                      {caps.canEditEmployees && <button className="btn btn-secondary btn-sm" onClick={() => { setEditEmp(emp); setShowModal(true); }}>Edit</button>}
+                      {caps.canApplyIncrement && <button className="btn btn-success btn-sm" onClick={() => setIncrementEmp(emp)}>↑ Inc</button>}
+                      {caps.canFireRehire && (emp.status !== "Fired"
+                        ? <button className="btn btn-danger btn-sm" onClick={() => { if (confirm(`Fire ${emp.name}?`)) fireEmployee(emp.id); }}>Fire</button>
+                        : <button className="btn btn-secondary btn-sm" onClick={() => setRehireEmp(emp)}>Rehire</button>
                       )}
+                      <DeleteBtn onDelete={() => deleteEmployee(emp.id)} label={`employee ${emp.name}`}/>
                     </div>
                   </td>
                 </tr>

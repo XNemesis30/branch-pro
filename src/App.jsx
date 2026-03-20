@@ -14,6 +14,7 @@ import Cheques from "./pages/Cheques";
 import Deposits from "./pages/Deposits";
 import MotherCompany from "./pages/MotherCompany";
 import Sidebar from "./components/Sidebar";
+import SetupChecker from "./components/SetupChecker";
 import "./App.css";
 
 function AppInner() {
@@ -38,6 +39,7 @@ function AppInner() {
     <div className="app-shell">
       <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
       <main className="main-content">{pages[currentPage] || <Dashboard />}</main>
+      <SetupChecker />
     </div>
   );
 }

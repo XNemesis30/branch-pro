@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { formatCurrency, today } from "../utils/sheets";
+import DeleteBtn from "../components/DeleteBtn";
 
 const DEFAULT_CATS = ["transport","entertainment","snacks","office supplies","electricity","internet","maintenance","emergency","rent","other"];
 
@@ -52,7 +53,7 @@ function ExpenseModal({ onClose, onSave, customCats }) {
 }
 
 export default function Expenses() {
-  const { expenseEntries, addExpense } = useApp();
+  const { expenseEntries, addExpense, deleteExpense } = useApp();
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("All");
@@ -105,9 +106,9 @@ export default function Expenses() {
           <div className="card">
             <div className="table-wrap">
               <table>
-                <thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Paid By</th><th>Note</th></tr></thead>
+                <thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Paid By</th><th>Note</th><th></th></tr></thead>
                 <tbody>
-                  {filtered.length===0&&<tr><td colSpan={5}><div className="empty-state"><p>No expense records</p></div></td></tr>}
+                  {filtered.length===0&&<tr><td colSpan={6}><div className="empty-state"><p>No expense records</p></div></td></tr>}
                   {filtered.map(e=>(
                     <tr key={e.id}>
                       <td className="mono" style={{fontSize:"12px"}}>{e.date}</td>
@@ -115,6 +116,7 @@ export default function Expenses() {
                       <td className="amount amount-negative" style={{fontWeight:700}}>{formatCurrency(e.amount)}</td>
                       <td style={{fontSize:"12px",color:"var(--text-muted)"}}>{e.paymentMethod}</td>
                       <td style={{fontSize:"12px",color:"var(--text-muted)"}}>{e.note||"—"}</td>
+                      <td><DeleteBtn onDelete={()=>deleteExpense(e.id)} label="this expense"/></td>
                     </tr>
                   ))}
                 </tbody>

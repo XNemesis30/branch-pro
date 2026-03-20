@@ -2,7 +2,7 @@ import { useApp } from "../context/AppContext";
 import { formatCurrency, monthLabel } from "../utils/sheets";
 
 export default function Dashboard() {
-  const { getStats, salaryRecords, employees, loans, incomeEntries, expenseEntries, cheques, motherTransfers, isDemo, setCurrentPage } = useApp();
+  const { getStats, salaryRecords, employees, loans, incomeEntries, expenseEntries, cheques, motherTransfers, isDemo, setCurrentPage, error, setError, caps, role } = useApp();
   const stats = getStats();
 
   const now = new Date();
@@ -29,6 +29,13 @@ export default function Dashboard() {
 
       {isDemo&&<div className="alert alert-warning" style={{marginBottom:"24px"}}>📊 Demo mode — configure Google Sheets API in <span className="mono">.env</span> to save real data.</div>}
 
+      {error&&(
+        <div className="alert alert-error" style={{marginBottom:"24px",lineHeight:"1.7"}}>
+          <strong>⚠ Setup issue detected:</strong><br/>{error}
+          <button onClick={()=>setError(null)} style={{float:"right",background:"none",border:"none",color:"inherit",cursor:"pointer",fontSize:"16px",marginTop:"-2px"}}>✕</button>
+        </div>
+      )}
+
       {/* Asset summary */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"16px",marginBottom:"20px"}}>
         <div style={{background:"linear-gradient(135deg,var(--success)15,var(--success)05)",border:"1px solid var(--success)30",borderRadius:"var(--radius)",padding:"20px",position:"relative",overflow:"hidden"}}>
@@ -48,11 +55,11 @@ export default function Dashboard() {
       {/* This month summary */}
       <div className="card" style={{marginBottom:"20px"}}>
         <div className="section-title">This Month — {monthLabel(curMonth,curYear)}</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:"12px"}}>
+        <div style={{display:"grid",gridTemplateColumns:`repeat(${caps.canViewPayroll ? 5 : 3},1fr)`,gap:"12px"}}>
           {[
             {label:"Income",val:monthIncome,color:"var(--success)",page:"income"},
             {label:"Expenses",val:monthExpense,color:"var(--danger)",page:"expenses"},
-            {label:"Salary Paid",val:monthSalary,color:"var(--warning)",page:"salary"},
+            ...(caps.canViewPayroll ? [{label:"Salary Paid",val:monthSalary,color:"var(--warning)",page:"salary"}] : []),
             {label:"Sent to HQ",val:monthMC,color:"var(--text-muted)",page:"mothercompany"},
             {label:"Net Position",val:netPosition,color:netPosition>=0?"var(--success)":"var(--danger)"},
           ].map(({label,val,color,page})=>(
@@ -70,9 +77,11 @@ export default function Dashboard() {
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"20px",marginBottom:"20px"}}>
         {/* Key metrics */}
         <div className="stat-grid" style={{gridTemplateColumns:"1fr 1fr",margin:0}}>
-          <div className="stat-card"><div className="stat-label">Active Employees</div><div className="stat-value">{stats.activeEmployees}</div><div className="stat-sub">of {stats.totalEmployees} total</div></div>
-          <div className="stat-card warning"><div className="stat-label">Pending Salary</div><div className="stat-value" style={{fontSize:"20px"}}>{formatCurrency(stats.totalPendingLiability)}</div></div>
-          <div className="stat-card danger"><div className="stat-label">Loan Outstanding</div><div className="stat-value" style={{fontSize:"20px"}}>{formatCurrency(stats.totalLoanOutstanding)}</div></div>
+          {caps.canViewPayroll && <div className="stat-card"><div className="stat-label">Active Employees</div><div className="stat-value">{stats.activeEmployees}</div><div className="stat-sub">of {stats.totalEmployees} total</div></div>}
+          {caps.canViewPayroll && <div className="stat-card warning"><div className="stat-label">Pending Salary</div><div className="stat-value" style={{fontSize:"20px"}}>{formatCurrency(stats.totalPendingLiability)}</div></div>}
+          {caps.canViewPayroll && <div className="stat-card danger"><div className="stat-label">Loan Outstanding</div><div className="stat-value" style={{fontSize:"20px"}}>{formatCurrency(stats.totalLoanOutstanding)}</div></div>}
+          <div className="stat-card"><div className="stat-label">Cash Balance</div><div className="stat-value" style={{fontSize:"20px"}}>{formatCurrency(stats.cashBalance)}</div></div>
+          <div className="stat-card success"><div className="stat-label">Bank Balance</div><div className="stat-value" style={{fontSize:"20px"}}>{formatCurrency(stats.bankBalance)}</div></div>
           <div className="stat-card"><div className="stat-label">Pending Cheques</div><div className="stat-value">{pendingCheques.length}</div><div className="stat-sub">{formatCurrency(stats.pendingCheques)}</div></div>
         </div>
 
@@ -80,7 +89,7 @@ export default function Dashboard() {
         <div className="card">
           <div className="section-title">⚠ Attention Required</div>
           <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
-            {unpaidEmployees.length>0&&(
+            {caps.canViewPayroll && unpaidEmployees.length>0&&(
               <div style={{padding:"10px 12px",background:"var(--warning-dim)",borderRadius:"8px",borderLeft:"3px solid var(--warning)",cursor:"pointer"}} onClick={()=>setCurrentPage("salary")}>
                 <div style={{fontWeight:600,fontSize:"13px",color:"var(--warning)"}}>{unpaidEmployees.length} employee(s) with unpaid salary</div>
                 <div style={{fontSize:"11px",color:"var(--text-muted)",marginTop:"2px"}}>{formatCurrency(stats.totalPendingLiability)} outstanding</div>
@@ -92,13 +101,13 @@ export default function Dashboard() {
                 <div style={{fontSize:"11px",color:"var(--text-muted)",marginTop:"2px"}}>{formatCurrency(stats.pendingCheques)} receivable</div>
               </div>
             )}
-            {activeLoans.length>0&&(
+            {caps.canViewPayroll && activeLoans.length>0&&(
               <div style={{padding:"10px 12px",background:"var(--danger-dim)",borderRadius:"8px",borderLeft:"3px solid var(--danger)",cursor:"pointer"}} onClick={()=>setCurrentPage("loans")}>
                 <div style={{fontWeight:600,fontSize:"13px",color:"var(--danger)"}}>{activeLoans.length} active loan(s)</div>
                 <div style={{fontSize:"11px",color:"var(--text-muted)",marginTop:"2px"}}>{formatCurrency(stats.totalLoanOutstanding)} remaining</div>
               </div>
             )}
-            {unpaidEmployees.length===0&&pendingCheques.length===0&&activeLoans.length===0&&(
+            {(!caps.canViewPayroll || unpaidEmployees.length===0) && pendingCheques.length===0 && (!caps.canViewPayroll || activeLoans.length===0)&&(
               <div style={{textAlign:"center",padding:"20px",color:"var(--text-muted)"}}>✓ All clear — no urgent items</div>
             )}
           </div>

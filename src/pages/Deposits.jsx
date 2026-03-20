@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { formatCurrency, today } from "../utils/sheets";
+import DeleteBtn from "../components/DeleteBtn";
 
 function DepositModal({ onClose, onSave, cashBalance }) {
   const [form, setForm] = useState({ date:today(), amount:"", destination:"Bank", reference:"", note:"" });
@@ -48,7 +49,7 @@ function DepositModal({ onClose, onSave, cashBalance }) {
 }
 
 export default function Deposits() {
-  const { deposits, addDeposit, getCashBalance, getBankBalance } = useApp();
+  const { deposits, addDeposit, getCashBalance, getBankBalance, deleteDeposit } = useApp();
   const [showModal, setShowModal] = useState(false);
 
   const sorted = [...deposits].sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -77,9 +78,9 @@ export default function Deposits() {
       <div className="card">
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Date</th><th>Amount</th><th>Destination</th><th>Reference</th><th>Note</th></tr></thead>
+            <thead><tr><th>Date</th><th>Amount</th><th>Destination</th><th>Reference</th><th>Note</th><th></th></tr></thead>
             <tbody>
-              {sorted.length===0&&<tr><td colSpan={5}><div className="empty-state"><p>No deposits recorded</p></div></td></tr>}
+              {sorted.length===0&&<tr><td colSpan={6}><div className="empty-state"><p>No deposits recorded</p></div></td></tr>}
               {sorted.map(d=>(
                 <tr key={d.id}>
                   <td className="mono" style={{fontSize:"12px"}}>{d.date}</td>
@@ -87,6 +88,7 @@ export default function Deposits() {
                   <td><span className={`badge ${d.destination==="Bank"?"badge-active":"badge-paid"}`}>{d.destination}</span></td>
                   <td className="mono" style={{fontSize:"12px",color:"var(--accent)"}}>{d.reference||"—"}</td>
                   <td style={{fontSize:"12px",color:"var(--text-muted)"}}>{d.note||"—"}</td>
+                  <td><DeleteBtn onDelete={()=>deleteDeposit(d.id)} label="this deposit"/></td>
                 </tr>
               ))}
             </tbody>
