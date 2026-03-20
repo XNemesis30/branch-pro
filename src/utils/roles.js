@@ -9,14 +9,14 @@ export const ROLES = {
 export const ROLE_PAGES = {
   admin: [
     "dashboard","employees","salary","loans","bonuses",
-    "income","expenses","cash","bank","cheques","deposits","mothercompany","reports",
+    "income","expenses","cash","bank","mobile","cheques","deposits","mothercompany","reports",
   ],
   manager: [
     "dashboard","employees","salary","loans","bonuses",
-    "income","expenses","cash","bank","cheques","deposits","mothercompany","reports",
+    "income","expenses","cash","bank","mobile","cheques","deposits","mothercompany","reports",
   ],
   employee: [
-    "dashboard","income","expenses","cash","bank","cheques","deposits","mothercompany",
+    "dashboard","income","expenses","cash","bank","mobile","cheques","deposits","mothercompany",
   ],
 };
 

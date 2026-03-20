@@ -17,6 +17,7 @@ export const SHEETS = {
   EXPENSES: "Expenses",
   CASH_LEDGER: "CashLedger",
   BANK_LEDGER: "BankLedger",
+  MOBILE_LEDGER: "MobileLedger",
   CHEQUES: "Cheques",
   DEPOSITS: "Deposits",
   MOTHER_COMPANY: "MotherCompany",
@@ -167,6 +168,7 @@ export async function initializeSheets() {
     { name: SHEETS.EXPENSES,      headers: EXPENSE_HEADERS },
     { name: SHEETS.CASH_LEDGER,   headers: CASH_HEADERS },
     { name: SHEETS.BANK_LEDGER,   headers: BANK_HEADERS },
+    { name: SHEETS.MOBILE_LEDGER, headers: MOBILE_HEADERS },
     { name: SHEETS.CHEQUES,       headers: CHEQUE_HEADERS },
     { name: SHEETS.DEPOSITS,      headers: DEPOSIT_HEADERS },
     { name: SHEETS.MOTHER_COMPANY,headers: MOTHER_HEADERS },
@@ -197,16 +199,17 @@ export async function initializeSheets() {
 // ── Headers for each sheet ────────────────────────────────
 export const EMPLOYEE_HEADERS    = ["id","name","nid","dob","joiningDate","bkash","salary","status","designation","department","address","emergencyContact","fireDate","rehireDate","createdAt"];
 export const SALARY_HEADERS      = ["id","employeeId","employeeName","month","year","baseSalary","bonus","incrementAdjusted","loanDeduction","totalPayable","totalWithdrawn","balance","status","createdAt"];
-export const LOAN_HEADERS        = ["id","employeeId","employeeName","amount","issueDate","repaymentType","monthlyDeduction","totalDeducted","remaining","status","notes"];
+export const LOAN_HEADERS        = ["id","employeeId","employeeName","amount","loanType","issueDate","repaymentType","monthlyDeduction","totalDeducted","remaining","status","notes"];
 export const BONUS_HEADERS       = ["id","employeeId","employeeName","amount","date","reason","type"];
 export const TRANSACTION_HEADERS = ["id","employeeId","employeeName","salaryRecordId","date","amount","method","transactionId","senderAccount","note"];
 export const INCREMENT_HEADERS   = ["id","employeeId","employeeName","previousSalary","incrementAmount","newSalary","effectiveDate","notes"];
 export const INCOME_HEADERS      = ["id","date","customerName","amount","paymentMethod","transactionId","senderAccount","category","note"];
 export const EXPENSE_HEADERS     = ["id","date","category","amount","paymentMethod","note"];
 export const CASH_HEADERS        = ["id","date","type","description","amount","direction","reference","balance"];
-export const BANK_HEADERS        = ["id","date","type","description","amount","direction","transactionId","balance"];
+export const BANK_HEADERS        = ["id","date","type","description","amount","direction","transactionId","reference","balance"];
+export const MOBILE_HEADERS      = ["id","date","type","description","amount","direction","method","transactionId","reference","balance"];
 export const CHEQUE_HEADERS      = ["id","customerName","chequeNumber","bankName","amount","issueDate","receivedDate","expectedClearDate","status","note"];
-export const DEPOSIT_HEADERS     = ["id","date","amount","destination","reference","note"];
+export const DEPOSIT_HEADERS     = ["id","date","amount","destination","method","reference","note"];
 export const MOTHER_HEADERS      = ["id","date","amount","method","reference","note"];
 
 // ── Utility helpers ───────────────────────────────────────

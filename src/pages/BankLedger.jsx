@@ -1,10 +1,11 @@
 import { useApp } from "../context/AppContext";
 import { formatCurrency } from "../utils/sheets";
+import DeleteBtn from "../components/DeleteBtn";
 
 const TYPE_COLOR = { income:"var(--success)", expense:"var(--danger)", salary:"var(--warning)", deposit:"var(--accent)", cheque:"var(--success)", "cheque recovery":"var(--success)" };
 
 export default function BankLedger() {
-  const { bankLedger, getBankBalance } = useApp();
+  const { bankLedger, getBankBalance, deleteBankLedgerRow } = useApp();
   const sorted = [...bankLedger].sort((a,b)=>new Date(a.date)-new Date(b.date));
   const balance = getBankBalance();
 
@@ -44,9 +45,9 @@ export default function BankLedger() {
           <div className="section-title">Bank Transaction History</div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Credit (৳)</th><th>Debit (৳)</th><th>Balance</th><th>Ref / TXN ID</th></tr></thead>
+              <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Credit (৳)</th><th>Debit (৳)</th><th>Balance</th><th>TXN ID</th><th></th></tr></thead>
               <tbody>
-                {sorted.length===0&&<tr><td colSpan={7}><div className="empty-state"><p>No bank entries yet</p></div></td></tr>}
+                {sorted.length===0&&<tr><td colSpan={8}><div className="empty-state"><p>No bank entries yet</p></div></td></tr>}
                 {[...sorted].reverse().map(e=>(
                   <tr key={e.id}>
                     <td className="mono" style={{fontSize:"12px"}}>{e.date}</td>
@@ -56,6 +57,7 @@ export default function BankLedger() {
                     <td className="amount amount-negative">{e.direction==="out"?formatCurrency(e.amount):"—"}</td>
                     <td className="amount" style={{fontWeight:700,color:parseFloat(e.balance)>=0?"var(--success)":"var(--danger)"}}>{formatCurrency(e.balance)}</td>
                     <td className="mono" style={{fontSize:"11px",color:"var(--accent)"}}>{e.transactionId||"—"}</td>
+                    <td><DeleteBtn onDelete={()=>deleteBankLedgerRow(e.id)} label="this bank entry"/></td>
                   </tr>
                 ))}
               </tbody>

@@ -10,6 +10,7 @@ import Income from "./pages/Income";
 import Expenses from "./pages/Expenses";
 import CashLedger from "./pages/CashLedger";
 import BankLedger from "./pages/BankLedger";
+import MobileLedger from "./pages/MobileLedger";
 import Cheques from "./pages/Cheques";
 import Deposits from "./pages/Deposits";
 import MotherCompany from "./pages/MotherCompany";
@@ -30,6 +31,7 @@ function AppInner() {
     expenses: <Expenses />,
     cash: <CashLedger />,
     bank: <BankLedger />,
+    mobile: <MobileLedger />,
     cheques: <Cheques />,
     deposits: <Deposits />,
     mothercompany: <MotherCompany />,

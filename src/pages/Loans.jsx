@@ -5,7 +5,8 @@ import DeleteBtn from "../components/DeleteBtn";
 
 function LoanModal({ employees, onClose, onSave }) {
   const [form, setForm] = useState({
-    employeeId: "", amount: "", issueDate: new Date().toISOString().split("T")[0],
+    employeeId: "", amount: "", loanType: "Cash",
+    issueDate: new Date().toISOString().split("T")[0],
     repaymentType: "monthly", monthlyDeduction: "", notes: "",
   });
   const [error, setError] = useState("");
@@ -14,10 +15,9 @@ function LoanModal({ employees, onClose, onSave }) {
   const submit = () => {
     if (!form.employeeId || !form.amount) { setError("Employee and amount are required."); return; }
     if (form.repaymentType === "monthly" && !form.monthlyDeduction) {
-      setError("Monthly deduction amount is required for monthly repayment."); return;
+      setError("Monthly deduction is required for monthly repayment."); return;
     }
-    onSave(form);
-    onClose();
+    onSave(form); onClose();
   };
 
   return (
@@ -41,8 +41,45 @@ function LoanModal({ employees, onClose, onSave }) {
             </div>
             <div className="form-group">
               <label>Loan Amount (৳) *</label>
-              <input type="number" value={form.amount} onChange={e => set("amount", e.target.value)} placeholder="Total loan amount" />
+              <input type="number" value={form.amount} onChange={e => set("amount", e.target.value)} placeholder="Total amount" />
             </div>
+
+            {/* Loan Type — the key new field */}
+            <div className="form-group full">
+              <label>Loan Type *</label>
+              <div style={{ display: "flex", gap: "10px" }}>
+                {["Cash", "Product"].map(t => (
+                  <div key={t} onClick={() => set("loanType", t)} style={{
+                    flex: 1, padding: "12px", borderRadius: "8px", cursor: "pointer", textAlign: "center",
+                    border: `2px solid ${form.loanType === t ? "var(--accent)" : "var(--border)"}`,
+                    background: form.loanType === t ? "var(--accent-dim)" : "var(--bg-elevated)",
+                    transition: "var(--transition)",
+                  }}>
+                    <div style={{ fontSize: "18px", marginBottom: "4px" }}>{t === "Cash" ? "💵" : "📦"}</div>
+                    <div style={{ fontWeight: 600, fontSize: "13px", color: form.loanType === t ? "var(--accent)" : "var(--text)" }}>{t}</div>
+                    <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>
+                      {t === "Cash" ? "Deducts from cash ledger" : "No cash impact — product/goods"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {form.loanType === "Cash" && form.amount && (
+              <div className="form-group full">
+                <div className="alert alert-warning" style={{ margin: 0 }}>
+                  ⚠ Cash loan — ৳{parseFloat(form.amount).toLocaleString()} will be deducted from Cash Ledger immediately.
+                </div>
+              </div>
+            )}
+            {form.loanType === "Product" && (
+              <div className="form-group full">
+                <div className="alert" style={{ margin: 0, background: "var(--accent-dim)", borderColor: "var(--accent)30", color: "var(--accent)" }}>
+                  ℹ Product loan — value recorded for salary deduction only. No cash ledger entry.
+                </div>
+              </div>
+            )}
+
             <div className="form-group">
               <label>Issue Date</label>
               <input type="date" value={form.issueDate} onChange={e => set("issueDate", e.target.value)} />
@@ -58,12 +95,13 @@ function LoanModal({ employees, onClose, onSave }) {
               <div className="form-group">
                 <label>Monthly Deduction (৳) *</label>
                 <input type="number" value={form.monthlyDeduction} onChange={e => set("monthlyDeduction", e.target.value)}
-                  placeholder="Deduct per month from salary" />
+                  placeholder="Deduct per month" />
               </div>
             )}
             <div className="form-group full">
               <label>Notes</label>
-              <input value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Reason for loan" />
+              <input value={form.notes} onChange={e => set("notes", e.target.value)}
+                placeholder={form.loanType === "Product" ? "e.g. 2 bags of rice, 1 phone — describe the product" : "Reason for loan"} />
             </div>
           </div>
         </div>
@@ -82,12 +120,37 @@ export default function Loans() {
   const [filter, setFilter] = useState("All");
 
   const filtered = loans.filter(l => filter === "All" || l.status === filter.toLowerCase());
+  const activeLoans = loans.filter(l => l.status === "active");
+  const cashLoans = activeLoans.filter(l => l.loanType === "Cash");
+  const productLoans = activeLoans.filter(l => l.loanType === "Product");
+  const totalOutstanding = activeLoans.reduce((s, l) => s + (parseFloat(l.remaining) || 0), 0);
 
   return (
     <div>
       <div className="page-header">
         <h2>Loan Management</h2>
-        <p>Track employee loans, deductions, and repayments</p>
+        <p>Track employee loans — cash and product</p>
+      </div>
+
+      <div className="stat-grid" style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: "20px" }}>
+        <div className="stat-card danger">
+          <div className="stat-label">Total Outstanding</div>
+          <div className="stat-value" style={{ fontSize: "22px" }}>{formatCurrency(totalOutstanding)}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Cash Loans</div>
+          <div className="stat-value">{cashLoans.length}</div>
+          <div className="stat-sub">{formatCurrency(cashLoans.reduce((s,l)=>s+(parseFloat(l.remaining)||0),0))} remaining</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Product Loans</div>
+          <div className="stat-value">{productLoans.length}</div>
+          <div className="stat-sub">{formatCurrency(productLoans.reduce((s,l)=>s+(parseFloat(l.remaining)||0),0))} remaining</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Total Loans</div>
+          <div className="stat-value">{loans.length}</div>
+        </div>
       </div>
 
       <div className="toolbar">
@@ -99,7 +162,9 @@ export default function Loans() {
           </select>
         </div>
         <div className="toolbar-right">
-          {caps.canIssueLoan && <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Issue Loan</button>}
+          {caps.canIssueLoan && (
+            <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Issue Loan</button>
+          )}
         </div>
       </div>
 
@@ -109,6 +174,7 @@ export default function Loans() {
             <thead>
               <tr>
                 <th>Employee</th>
+                <th>Type</th>
                 <th>Loan Amount</th>
                 <th>Issue Date</th>
                 <th>Repayment</th>
@@ -118,9 +184,10 @@ export default function Loans() {
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
-            </thead>            <tbody>
+            </thead>
+            <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={9}><div className="empty-state"><p>No loan records found</p></div></td></tr>
+                <tr><td colSpan={10}><div className="empty-state"><p>No loan records found</p></div></td></tr>
               )}
               {filtered.map(loan => {
                 const pct = parseFloat(loan.amount) > 0
@@ -128,8 +195,16 @@ export default function Loans() {
                   : 100;
                 return (
                   <tr key={loan.id}>
+                    <td style={{ fontWeight: 500 }}>{loan.employeeName}</td>
                     <td>
-                      <div style={{ fontWeight: 500 }}>{loan.employeeName}</div>
+                      <span style={{
+                        fontSize: "11px", fontWeight: 600, padding: "3px 8px", borderRadius: "99px",
+                        background: loan.loanType === "Cash" ? "var(--success-dim)" : "var(--accent-dim)",
+                        color: loan.loanType === "Cash" ? "var(--success)" : "var(--accent)",
+                        fontFamily: "var(--font-mono)", textTransform: "uppercase",
+                      }}>
+                        {loan.loanType === "Product" ? "📦 Product" : "💵 Cash"}
+                      </span>
                     </td>
                     <td className="amount" style={{ fontWeight: 700 }}>{formatCurrency(loan.amount)}</td>
                     <td className="mono" style={{ fontSize: "12px" }}>{loan.issueDate}</td>
@@ -156,14 +231,14 @@ export default function Loans() {
                       </span>
                     </td>
                     <td>
-                      <div style={{display:"flex",gap:"6px"}}>
+                      <div style={{ display: "flex", gap: "6px" }}>
                         {loan.status === "active" && caps.canRepayLoan && (
                           <button className="btn btn-success btn-sm"
                             onClick={() => { if (confirm("Mark this loan as fully repaid?")) repayLoanFull(loan.id); }}>
                             Mark Repaid
                           </button>
                         )}
-                        <DeleteBtn onDelete={()=>deleteLoan(loan.id)} label="this loan"/>
+                        <DeleteBtn onDelete={() => deleteLoan(loan.id)} label="this loan" />
                       </div>
                     </td>
                   </tr>

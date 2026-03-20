@@ -3,7 +3,7 @@ import {
   readSheet, appendRow, updateRow, deleteRow, SHEETS,
   EMPLOYEE_HEADERS, SALARY_HEADERS, LOAN_HEADERS, BONUS_HEADERS,
   TRANSACTION_HEADERS, INCREMENT_HEADERS, INCOME_HEADERS, EXPENSE_HEADERS,
-  CASH_HEADERS, BANK_HEADERS, CHEQUE_HEADERS, DEPOSIT_HEADERS, MOTHER_HEADERS,
+  CASH_HEADERS, BANK_HEADERS, MOBILE_HEADERS, CHEQUE_HEADERS, DEPOSIT_HEADERS, MOTHER_HEADERS,
   generateId, generateEmployeeId, setAccessToken, initializeSheets,
   SHEETS_CONFIG, today,
 } from "../utils/sheets";
@@ -29,6 +29,7 @@ export function AppProvider({ children }) {
   const [expenseEntries, setExpenseEntries] = useState([]);
   const [cashLedger, setCashLedger] = useState([]);
   const [bankLedger, setBankLedger] = useState([]);
+  const [mobileLedger, setMobileLedger] = useState([]);
   const [cheques, setCheques] = useState([]);
   const [deposits, setDeposits] = useState([]);
   const [motherTransfers, setMotherTransfers] = useState([]);
@@ -93,17 +94,17 @@ export function AppProvider({ children }) {
       // Read each sheet individually — don't let one failure kill everything
       const safeRead = async (name) => { try { return await readSheet(name); } catch(e) { console.warn(`Could not read ${name}:`, e.message); return []; } };
 
-      const [emps,sal,ln,bon,txn,inc,income,exp,cash,bank,cheq,dep,mom] = await Promise.all([
+      const [emps,sal,ln,bon,txn,inc,income,exp,cash,bank,mobile,cheq,dep,mom] = await Promise.all([
         safeRead(SHEETS.EMPLOYEES), safeRead(SHEETS.SALARY), safeRead(SHEETS.LOANS),
         safeRead(SHEETS.BONUSES), safeRead(SHEETS.TRANSACTIONS), safeRead(SHEETS.INCREMENTS),
         safeRead(SHEETS.INCOME), safeRead(SHEETS.EXPENSES), safeRead(SHEETS.CASH_LEDGER),
-        safeRead(SHEETS.BANK_LEDGER), safeRead(SHEETS.CHEQUES), safeRead(SHEETS.DEPOSITS),
-        safeRead(SHEETS.MOTHER_COMPANY),
+        safeRead(SHEETS.BANK_LEDGER), safeRead(SHEETS.MOBILE_LEDGER), safeRead(SHEETS.CHEQUES),
+        safeRead(SHEETS.DEPOSITS), safeRead(SHEETS.MOTHER_COMPANY),
       ]);
       setEmployees(emps); setSalaryRecords(sal); setLoans(ln); setBonuses(bon);
       setTransactions(txn); setIncrements(inc); setIncomeEntries(income);
       setExpenseEntries(exp); setCashLedger(cash); setBankLedger(bank);
-      setCheques(cheq); setDeposits(dep); setMotherTransfers(mom);
+      setMobileLedger(mobile); setCheques(cheq); setDeposits(dep); setMotherTransfers(mom);
     } catch(e) { setError(e.message); } finally { setLoading(false); }
   }, []);
 
@@ -145,9 +146,11 @@ export function AppProvider({ children }) {
       {id:"CASH-003",date:"2026-03-20",type:"expense",description:"Office supplies",amount:"1200",direction:"out",reference:"EXP-003",balance:"63000"},
     ]);
     setBankLedger([
-      {id:"BANK-001",date:"2026-03-18",type:"income",description:"Akbar Trading - bKash",amount:"50000",direction:"in",transactionId:"BK555111222",balance:"150000"},
-      {id:"BANK-002",date:"2026-03-19",type:"expense",description:"Electricity bill",amount:"3500",direction:"out",transactionId:"DBB-EXP-001",balance:"146500"},
-      {id:"BANK-003",date:"2026-03-20",type:"income",description:"Nadia Enterprises - Bank Transfer",amount:"30000",direction:"in",transactionId:"DBB20260320",balance:"176500"},
+      {id:"BANK-001",date:"2026-03-20",type:"income",description:"Nadia Enterprises - Bank Transfer",amount:"30000",direction:"in",transactionId:"DBB20260320",reference:"INC-003",balance:"30000"},
+      {id:"BANK-002",date:"2026-03-19",type:"expense",description:"Electricity bill",amount:"3500",direction:"out",transactionId:"DBB-EXP-001",reference:"EXP-002",balance:"26500"},
+    ]);
+    setMobileLedger([
+      {id:"MOB-001",date:"2026-03-18",type:"income",description:"Akbar Trading - bKash",amount:"50000",direction:"in",method:"bKash",transactionId:"BK555111222",reference:"INC-001",balance:"50000"},
     ]);
     setCheques([
       {id:"CHQ-001",customerName:"Masud Corporation",chequeNumber:"CHQ-123456",bankName:"Dutch-Bangla Bank",amount:"45000",issueDate:"2026-03-10",receivedDate:"2026-03-12",expectedClearDate:"2026-03-25",status:"pending",note:""},
@@ -162,71 +165,153 @@ export function AppProvider({ children }) {
     ]);
   };
 
-  const getCashBalance = () => {
-    if (!cashLedger.length) return 0;
-    const last = [...cashLedger].sort((a,b) => new Date(b.date)-new Date(a.date))[0];
-    return parseFloat(last.balance)||0;
-  };
-  const getBankBalance = () => {
-    if (!bankLedger.length) return 0;
-    const last = [...bankLedger].sort((a,b) => new Date(b.date)-new Date(a.date))[0];
-    return parseFloat(last.balance)||0;
-  };
+  const MOBILE_METHODS = ["bKash", "Nagad", "Rocket"];
+
+  // ─── Balance computed live from all ledger entries ────────
+  const getCashBalance = () => cashLedger.reduce((bal, e) => {
+    const amt = parseFloat(e.amount) || 0;
+    return e.direction === "in" ? bal + amt : bal - amt;
+  }, 0);
+
+  const getBankBalance = () => bankLedger.reduce((bal, e) => {
+    const amt = parseFloat(e.amount) || 0;
+    return e.direction === "in" ? bal + amt : bal - amt;
+  }, 0);
+
+  const getMobileBalance = () => mobileLedger.reduce((bal, e) => {
+    const amt = parseFloat(e.amount) || 0;
+    return e.direction === "in" ? bal + amt : bal - amt;
+  }, 0);
 
   const _addCashEntry = async (entry) => {
     const cur = getCashBalance();
     const amt = parseFloat(entry.amount);
-    const newBal = entry.direction==="in" ? cur+amt : cur-amt;
-    const row = {...entry, id:generateId("CASH"), balance:String(newBal)};
+    const newBal = entry.direction === "in" ? cur + amt : cur - amt;
+    const row = { ...entry, id: generateId("CASH"), balance: String(newBal) };
     if (!isDemo) await appendRow(SHEETS.CASH_LEDGER, row, CASH_HEADERS);
     setCashLedger(prev => [...prev, row]);
     return row;
   };
+
   const _addBankEntry = async (entry) => {
     const cur = getBankBalance();
     const amt = parseFloat(entry.amount);
-    const newBal = entry.direction==="in" ? cur+amt : cur-amt;
-    const row = {...entry, id:generateId("BANK"), balance:String(newBal)};
+    const newBal = entry.direction === "in" ? cur + amt : cur - amt;
+    const row = { ...entry, id: generateId("BANK"), balance: String(newBal) };
     if (!isDemo) await appendRow(SHEETS.BANK_LEDGER, row, BANK_HEADERS);
     setBankLedger(prev => [...prev, row]);
     return row;
   };
 
+  const _addMobileEntry = async (entry) => {
+    const cur = getMobileBalance();
+    const amt = parseFloat(entry.amount);
+    const newBal = entry.direction === "in" ? cur + amt : cur - amt;
+    const row = { ...entry, id: generateId("MOB"), balance: String(newBal) };
+    if (!isDemo) await appendRow(SHEETS.MOBILE_LEDGER, row, MOBILE_HEADERS);
+    setMobileLedger(prev => [...prev, row]);
+    return row;
+  };
+
+  // Route to correct ledger based on payment method
+  const _addLedgerEntry = async (paymentMethod, cashEntry, bankEntry) => {
+    if (paymentMethod === "Cash") {
+      await _addCashEntry(cashEntry);
+    } else if (MOBILE_METHODS.includes(paymentMethod)) {
+      await _addMobileEntry({ ...bankEntry, method: paymentMethod });
+    } else {
+      await _addBankEntry(bankEntry);
+    }
+  };
+
+  // ─── Helper: delete all cash ledger rows that reference a source ID ──
+  const _deleteCashLedgerByRef = async (sourceId) => {
+    const matching = cashLedger.filter(e => e.reference === sourceId);
+    for (const entry of matching) {
+      const idx = cashLedger.findIndex(e => e.id === entry.id);
+      if (idx !== -1 && !isDemo) {
+        try { await deleteRow(SHEETS.CASH_LEDGER, idx); } catch(e) { console.warn("Cash ledger delete:", e.message); }
+      }
+    }
+    setCashLedger(prev => prev.filter(e => e.reference !== sourceId));
+  };
+
+  // ─── Helper: delete bank ledger rows matching a source ID ──
+  const _deleteBankLedgerByRef = async (sourceId) => {
+    const matching = bankLedger.filter(e => e.reference === sourceId || e.transactionId === sourceId);
+    for (const entry of matching) {
+      const idx = bankLedger.findIndex(e => e.id === entry.id);
+      if (idx !== -1 && !isDemo) { try { await deleteRow(SHEETS.BANK_LEDGER, idx); } catch(e) { console.warn(e.message); } }
+    }
+    setBankLedger(prev => prev.filter(e => e.reference !== sourceId && e.transactionId !== sourceId));
+  };
+
+  const _deleteMobileLedgerByRef = async (sourceId) => {
+    const matching = mobileLedger.filter(e => e.reference === sourceId || e.transactionId === sourceId);
+    for (const entry of matching) {
+      const idx = mobileLedger.findIndex(e => e.id === entry.id);
+      if (idx !== -1 && !isDemo) { try { await deleteRow(SHEETS.MOBILE_LEDGER, idx); } catch(e) { console.warn(e.message); } }
+    }
+    setMobileLedger(prev => prev.filter(e => e.reference !== sourceId && e.transactionId !== sourceId));
+  };
+
+  // ─── Direct ledger row deletion from ledger pages ──────────
+  const deleteCashLedgerRow   = (id) => _deleteFromSheet(SHEETS.CASH_LEDGER,   cashLedger,   setCashLedger,   id);
+  const deleteBankLedgerRow   = (id) => _deleteFromSheet(SHEETS.BANK_LEDGER,   bankLedger,   setBankLedger,   id);
+  const deleteMobileLedgerRow = (id) => _deleteFromSheet(SHEETS.MOBILE_LEDGER, mobileLedger, setMobileLedger, id);
+
   const addIncome = async (entry) => {
-    const isCash = entry.paymentMethod==="Cash";
+    const isCash = entry.paymentMethod === "Cash";
+    const isMobile = MOBILE_METHODS.includes(entry.paymentMethod);
     if (!isCash && !entry.transactionId) throw new Error("Transaction ID is required for non-cash payments.");
-    if (entry.transactionId && incomeEntries.find(e=>e.transactionId===entry.transactionId)) throw new Error("Duplicate transaction ID detected.");
-    const row = {...entry, id:generateId("INC")};
+    if (entry.transactionId && incomeEntries.find(e => e.transactionId === entry.transactionId)) throw new Error("Duplicate transaction ID detected.");
+    const row = { ...entry, id: generateId("INC") };
     if (!isDemo) await appendRow(SHEETS.INCOME, row, INCOME_HEADERS);
     setIncomeEntries(prev => [...prev, row]);
-    if (isCash) await _addCashEntry({date:entry.date,type:"income",description:`${entry.customerName} - Cash`,amount:entry.amount,direction:"in",reference:row.id});
-    else await _addBankEntry({date:entry.date,type:"income",description:`${entry.customerName} - ${entry.paymentMethod}`,amount:entry.amount,direction:"in",transactionId:entry.transactionId});
+    const desc = `${entry.customerName || "Customer"} - ${entry.paymentMethod}`;
+    if (isCash) {
+      await _addCashEntry({ date: entry.date, type: "income", description: desc, amount: entry.amount, direction: "in", reference: row.id });
+    } else if (isMobile) {
+      await _addMobileEntry({ date: entry.date, type: "income", description: desc, amount: entry.amount, direction: "in", method: entry.paymentMethod, transactionId: entry.transactionId, reference: row.id });
+    } else {
+      await _addBankEntry({ date: entry.date, type: "income", description: desc, amount: entry.amount, direction: "in", transactionId: entry.transactionId, reference: row.id });
+    }
     return row;
   };
 
   const addExpense = async (entry) => {
-    const row = {...entry, id:generateId("EXP")};
+    const isCash = entry.paymentMethod === "Cash";
+    const isMobile = MOBILE_METHODS.includes(entry.paymentMethod);
+    const row = { ...entry, id: generateId("EXP") };
     if (!isDemo) await appendRow(SHEETS.EXPENSES, row, EXPENSE_HEADERS);
     setExpenseEntries(prev => [...prev, row]);
-    if (entry.paymentMethod==="Cash") await _addCashEntry({date:entry.date,type:"expense",description:`${entry.category}: ${entry.note}`,amount:entry.amount,direction:"out",reference:row.id});
-    else await _addBankEntry({date:entry.date,type:"expense",description:`${entry.category}: ${entry.note}`,amount:entry.amount,direction:"out",transactionId:""});
+    const desc = `${entry.category}: ${entry.note || ""}`;
+    if (isCash) {
+      await _addCashEntry({ date: entry.date, type: "expense", description: desc, amount: entry.amount, direction: "out", reference: row.id });
+    } else if (isMobile) {
+      await _addMobileEntry({ date: entry.date, type: "expense", description: desc, amount: entry.amount, direction: "out", method: entry.paymentMethod, transactionId: row.id, reference: row.id });
+    } else {
+      await _addBankEntry({ date: entry.date, type: "expense", description: desc, amount: entry.amount, direction: "out", transactionId: row.id, reference: row.id });
+    }
     return row;
   };
 
   const addDeposit = async (entry) => {
-    const row = {...entry, id:generateId("DEP")};
+    const row = { ...entry, id: generateId("DEP") };
     if (!isDemo) await appendRow(SHEETS.DEPOSITS, row, DEPOSIT_HEADERS);
     setDeposits(prev => [...prev, row]);
-    await _addCashEntry({date:entry.date,type:"deposit",description:`Deposit to ${entry.destination}`,amount:entry.amount,direction:"out",reference:row.id});
-    if (entry.destination==="Bank") await _addBankEntry({date:entry.date,type:"deposit",description:"Cash deposit received",amount:entry.amount,direction:"in",transactionId:entry.reference});
+    await _addCashEntry({ date: entry.date, type: "deposit", description: `Deposit to ${entry.destination}`, amount: entry.amount, direction: "out", reference: row.id });
+    if (entry.destination === "Bank") {
+      await _addBankEntry({ date: entry.date, type: "deposit", description: "Cash deposit received", amount: entry.amount, direction: "in", transactionId: entry.reference, reference: row.id });
+    }
     return row;
   };
 
   const addMotherTransfer = async (entry) => {
-    const row = {...entry, id:generateId("MC")};
+    const row = { ...entry, id: generateId("MC") };
     if (!isDemo) await appendRow(SHEETS.MOTHER_COMPANY, row, MOTHER_HEADERS);
     setMotherTransfers(prev => [...prev, row]);
-    await _addCashEntry({date:entry.date,type:"transfer",description:"Sent to Mother Company",amount:entry.amount,direction:"out",reference:row.id});
+    await _addCashEntry({ date: entry.date, type: "transfer", description: "Sent to Mother Company", amount: entry.amount, direction: "out", reference: row.id });
     return row;
   };
 
@@ -318,17 +403,26 @@ export function AppProvider({ children }) {
     const txn = {id:generateId("TXN"),employeeId:record.employeeId,employeeName:record.employeeName,salaryRecordId,date:date||today(),amount:String(payAmt),method,transactionId:transactionId||"",senderAccount:senderAccount||"",note:note||""};
     if (!isDemo) await appendRow(SHEETS.TRANSACTIONS, txn, TRANSACTION_HEADERS);
     setTransactions(prev=>[...prev,txn]);
-    if (method==="Cash") await _addCashEntry({date:date||today(),type:"salary",description:`Salary - ${record.employeeName}`,amount:String(payAmt),direction:"out",reference:txn.id});
-    else await _addBankEntry({date:date||today(),type:"salary",description:`Salary - ${record.employeeName}`,amount:String(payAmt),direction:"out",transactionId});
+    if (method==="Cash") {
+      await _addCashEntry({date:date||today(),type:"salary",description:`Salary - ${record.employeeName}`,amount:String(payAmt),direction:"out",reference:txn.id});
+    } else if (MOBILE_METHODS.includes(method)) {
+      await _addMobileEntry({date:date||today(),type:"salary",description:`Salary - ${record.employeeName}`,amount:String(payAmt),direction:"out",method,transactionId,reference:txn.id});
+    } else {
+      await _addBankEntry({date:date||today(),type:"salary",description:`Salary - ${record.employeeName}`,amount:String(payAmt),direction:"out",transactionId,reference:txn.id});
+    }
     return txn;
   };
 
   const issueLoan = async (loan) => {
     const emp = employees.find(e=>e.id===loan.employeeId);
-    const nl = {...loan,id:generateId("LOAN"),employeeName:emp?.name||"",totalDeducted:"0",remaining:loan.amount,status:"active"};
+    const nl = {...loan, id:generateId("LOAN"), employeeName:emp?.name||"", totalDeducted:"0", remaining:loan.amount, status:"active"};
     if (!isDemo) await appendRow(SHEETS.LOANS, nl, LOAN_HEADERS);
     setLoans(prev=>[...prev,nl]);
-    await _addCashEntry({date:loan.issueDate||today(),type:"loan",description:`Loan issued - ${emp?.name}`,amount:loan.amount,direction:"out",reference:nl.id});
+    // Only deduct from cash if loan type is "Cash" — products don't affect cash ledger
+    if (loan.loanType === "Cash") {
+      await _addCashEntry({date:loan.issueDate||today(), type:"loan", description:`Loan (Cash) - ${emp?.name}`, amount:loan.amount, direction:"out", reference:nl.id});
+    }
+    // Product loans: recorded only, no ledger impact
     return nl;
   };
   const repayLoanFull = async (loanId) => {
@@ -372,16 +466,57 @@ export function AppProvider({ children }) {
     setData(prev => prev.filter(r => r.id !== id));
   };
 
-  const deleteEmployee    = (id) => _deleteFromSheet(SHEETS.EMPLOYEES,     employees,     setEmployees,     id);
-  const deleteSalary      = (id) => _deleteFromSheet(SHEETS.SALARY,        salaryRecords, setSalaryRecords, id);
-  const deleteLoan        = (id) => _deleteFromSheet(SHEETS.LOANS,         loans,         setLoans,         id);
-  const deleteBonus       = (id) => _deleteFromSheet(SHEETS.BONUSES,       bonuses,       setBonuses,       id);
-  const deleteTransaction = (id) => _deleteFromSheet(SHEETS.TRANSACTIONS,  transactions,  setTransactions,  id);
-  const deleteIncome      = (id) => _deleteFromSheet(SHEETS.INCOME,        incomeEntries, setIncomeEntries, id);
-  const deleteExpense     = (id) => _deleteFromSheet(SHEETS.EXPENSES,      expenseEntries,setExpenseEntries,id);
-  const deleteCheque      = (id) => _deleteFromSheet(SHEETS.CHEQUES,       cheques,       setCheques,       id);
-  const deleteDeposit     = (id) => _deleteFromSheet(SHEETS.DEPOSITS,      deposits,      setDeposits,      id);
-  const deleteMotherTransfer = (id) => _deleteFromSheet(SHEETS.MOTHER_COMPANY, motherTransfers, setMotherTransfers, id);
+  const deleteEmployee    = (id) => _deleteFromSheet(SHEETS.EMPLOYEES,    employees,     setEmployees,     id);
+  const deleteSalary      = (id) => _deleteFromSheet(SHEETS.SALARY,       salaryRecords, setSalaryRecords, id);
+  const deleteLoan        = (id) => _deleteFromSheet(SHEETS.LOANS,        loans,         setLoans,         id);
+  const deleteBonus       = (id) => _deleteFromSheet(SHEETS.BONUSES,      bonuses,       setBonuses,       id);
+  const deleteTransaction = (id) => _deleteFromSheet(SHEETS.TRANSACTIONS, transactions,  setTransactions,  id);
+  const deleteCheque      = (id) => _deleteFromSheet(SHEETS.CHEQUES,      cheques,       setCheques,       id);
+
+  // Income: delete income row + its cash/bank/mobile ledger entry
+  const deleteIncome = async (id) => {
+    const entry = incomeEntries.find(e => e.id === id);
+    if (!entry) throw new Error("Record not found");
+    await _deleteFromSheet(SHEETS.INCOME, incomeEntries, setIncomeEntries, id);
+    if (entry.paymentMethod === "Cash") {
+      await _deleteCashLedgerByRef(id);
+    } else if (MOBILE_METHODS.includes(entry.paymentMethod)) {
+      await _deleteMobileLedgerByRef(id);
+    } else {
+      await _deleteBankLedgerByRef(id);
+    }
+  };
+
+  // Expense: delete expense row + its cash/bank/mobile ledger entry
+  const deleteExpense = async (id) => {
+    const entry = expenseEntries.find(e => e.id === id);
+    if (!entry) throw new Error("Record not found");
+    await _deleteFromSheet(SHEETS.EXPENSES, expenseEntries, setExpenseEntries, id);
+    if (entry.paymentMethod === "Cash") {
+      await _deleteCashLedgerByRef(id);
+    } else if (MOBILE_METHODS.includes(entry.paymentMethod)) {
+      await _deleteMobileLedgerByRef(id);
+    } else {
+      await _deleteBankLedgerByRef(id);
+    }
+  };
+
+  // Deposit: delete deposit row + cash entry + bank entry (if destination=Bank)
+  const deleteDeposit = async (id) => {
+    const entry = deposits.find(d => d.id === id);
+    if (!entry) throw new Error("Record not found");
+    await _deleteFromSheet(SHEETS.DEPOSITS, deposits, setDeposits, id);
+    await _deleteCashLedgerByRef(id);
+    if (entry.destination === "Bank") {
+      await _deleteBankLedgerByRef(id);
+    }
+  };
+
+  // Mother company transfer: delete transfer row + cash ledger entry
+  const deleteMotherTransfer = async (id) => {
+    await _deleteFromSheet(SHEETS.MOTHER_COMPANY, motherTransfers, setMotherTransfers, id);
+    await _deleteCashLedgerByRef(id);
+  };
 
   const getStats = () => {
     const active = employees.filter(e=>e.status==="Active"||e.status==="Rehired");
@@ -404,14 +539,15 @@ export function AppProvider({ children }) {
       isLoggedIn,login,logout,currentPage,setCurrentPage,loading,error,setError,isDemo,
       role,caps,allowedPages,
       employees,salaryRecords,loans,bonuses,transactions,increments,
-      incomeEntries,expenseEntries,cashLedger,bankLedger,cheques,deposits,motherTransfers,
+      incomeEntries,expenseEntries,cashLedger,bankLedger,mobileLedger,cheques,deposits,motherTransfers,
       addEmployee,updateEmployee,fireEmployee,rehireEmployee,
       generateSalaryRecord,recordPayment,issueLoan,repayLoanFull,addBonus,applyIncrement,
       addIncome,addExpense,addDeposit,addMotherTransfer,
       addCheque,updateChequeStatus,collectBouncedCheque,
       deleteEmployee,deleteSalary,deleteLoan,deleteBonus,deleteTransaction,
       deleteIncome,deleteExpense,deleteCheque,deleteDeposit,deleteMotherTransfer,
-      getCashBalance,getBankBalance,getStats,loadAllData,
+      deleteCashLedgerRow,deleteBankLedgerRow,deleteMobileLedgerRow,
+      getCashBalance,getBankBalance,getMobileBalance,getStats,loadAllData,
     }}>
       {children}
     </AppContext.Provider>

@@ -1,10 +1,11 @@
 import { useApp } from "../context/AppContext";
 import { formatCurrency } from "../utils/sheets";
+import DeleteBtn from "../components/DeleteBtn";
 
 const TYPE_COLOR = { income:"var(--success)", expense:"var(--danger)", salary:"var(--warning)", loan:"var(--danger)", deposit:"var(--accent)", transfer:"var(--text-muted)", "cheque recovery":"var(--success)", cheque:"var(--success)" };
 
 export default function CashLedger() {
-  const { cashLedger, getCashBalance } = useApp();
+  const { cashLedger, getCashBalance, deleteCashLedgerRow } = useApp();
   const sorted = [...cashLedger].sort((a,b)=>new Date(a.date)-new Date(b.date));
   const balance = getCashBalance();
 
@@ -46,9 +47,9 @@ export default function CashLedger() {
           <div className="section-title">Full Cash Ledger</div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>In (৳)</th><th>Out (৳)</th><th>Balance</th></tr></thead>
+              <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>In (৳)</th><th>Out (৳)</th><th>Balance</th><th></th></tr></thead>
               <tbody>
-                {sorted.length===0&&<tr><td colSpan={6}><div className="empty-state"><p>No cash entries yet</p></div></td></tr>}
+                {sorted.length===0&&<tr><td colSpan={7}><div className="empty-state"><p>No cash entries yet</p></div></td></tr>}
                 {[...sorted].reverse().map(e=>(
                   <tr key={e.id}>
                     <td className="mono" style={{fontSize:"12px"}}>{e.date}</td>
@@ -57,6 +58,7 @@ export default function CashLedger() {
                     <td className="amount amount-positive">{e.direction==="in"?formatCurrency(e.amount):"—"}</td>
                     <td className="amount amount-negative">{e.direction==="out"?formatCurrency(e.amount):"—"}</td>
                     <td className="amount" style={{fontWeight:700,color:parseFloat(e.balance)>=0?"var(--success)":"var(--danger)"}}>{formatCurrency(e.balance)}</td>
+                    <td><DeleteBtn onDelete={()=>deleteCashLedgerRow(e.id)} label="this cash entry"/></td>
                   </tr>
                 ))}
               </tbody>
